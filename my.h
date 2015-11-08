@@ -16,6 +16,7 @@ struct s_list
   void			*elem;
   struct s_list		*next;
   int			loop;
+  int			id;
 };
 
 typedef struct s_list	chain_list;

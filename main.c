@@ -5,7 +5,7 @@
 ** Login   <boulag_l@epitech.net>
 **
 ** Started on  Mon Nov 02 12:58:49 2015 Luka Boulagnon
-** Last update Sun Nov 08 22:00:01 2015 Asphähyre
+** Last update Sun Nov 08 22:32:18 2015 Asphähyre
 */
 
 
@@ -36,6 +36,19 @@ void		push(chain_list *list, chain_list *next)
   list->next = next;
 }
 
+void			player_moved(chain_list *players, t_bunny_position pos, int player)
+{
+  t_bunny_position	*position;
+
+  while (players && players->id != player)
+    players = players->next;
+  if (players)
+  {
+    position = players->elem;
+    *position = pos;
+  }
+}
+
 void			*get_pos(void *param)
 {
   t_params		*params;
@@ -53,7 +66,10 @@ void			*get_pos(void *param)
     switch(pck.type)
     {
       case MOVE:
+	if (pck.player == params->user)
+	  break;
 	printf("RECEIVED FROM SERVER: player %d moved\n", pck.player);
+	player_moved(params->players, pck.pos, pck.player);
 	break;
       case CONNECT:
 	if (pck.player == params->user)
@@ -68,6 +84,7 @@ void			*get_pos(void *param)
 	  new_player->next = NULL;
 	  new_player->everyone = params->players;
 	  new_player->elem = pos;
+	  new_player->id = pck.player;
 	  push(params->players, new_player);
 	}
 	break;
@@ -162,12 +179,14 @@ t_bunny_response	truc_pressed(t_bunny_event_state event, t_bunny_keysym key,  vo
   return (GO_ON);
 }
 
-void			disp_players(t_bunny_buffer *buffer, chain_list *players)
+void			disp_players(t_bunny_buffer *buffer, t_bunny_clipable *p, chain_list *players)
 {
   t_bunny_position	*pos;
 
   while (players = players->next)
   {
+    pos = players->elem;
+    bunny_blit(buffer, p, pos);
   }
 }
 
@@ -183,7 +202,7 @@ t_bunny_response	loop(void *param)
   p = params->pa;
   bunny_blit(&win->buffer, &params->black->clipable, &(params->origin));
   bunny_blit(&win->buffer, &p->clipable, &(params->pos));
-  disp_players(&win->buffer, params->players);
+  disp_players(&win->buffer, &p->clipable, params->players);
   bunny_set_key_response(&truc_pressed);
   bunny_display(win);
   usleep(1000000/60);
@@ -237,7 +256,7 @@ int     main()
   params.user = rand();
   params.players = players;
 
-  //send_pos(&params);
+  send_pos(&params);
   pthread_create(&get_data, NULL, get_pos, &params);
   pthread_create(&moving, NULL, move_player, &params);
   bunny_loop(w, 255, &params);

@@ -48,7 +48,6 @@ void		send_to_all(int type, int who, void *what, chain_list *clients)
       pck.type = MOVE;
       pck.player = who;
       pck.pos = *((t_bunny_position *)what);
-      clients = clients->next;
       while (clients = clients->next)
       {
 	srv = clients->elem;
@@ -93,6 +92,7 @@ void	*listen_sock(void *strct)
     printf("Received positions [%d ; %d] from %d\n", pck.pos.x, pck.pos.y, srv->player, srv->sockfd);
     send_to_all(MOVE, srv->player, &(pck.pos), elm->everyone);
   }
+  printf("Client %d disconnected...\n", srv->player);
   send_to_all(DISCONNECT, srv->player, &(pck.pos), elm->everyone);
   delete(elm->everyone, elm);
   close(srv->sockfd);
@@ -107,11 +107,14 @@ int create_servers()
   struct sockaddr_in serv_addr, cli_addr;
   int n;
   t_server		*srv;
+  t_server		*client;
   t_params		*params;
   chain_list		*list;
+  chain_list		*clients;
   chain_list		*nlist;
   pthread_t		server;
   t_bunny_position	pos;
+  t_packet		pck;
 
   sockfd = socket(AF_INET, SOCK_STREAM, 0);
   if (sockfd < 0)
@@ -149,6 +152,15 @@ int create_servers()
       push(list, nlist);
       pos.x = 200;
       pos.y = 100;
+      pck.type = CONNECT;
+      clients = list;
+      while (clients = clients->next)
+      {
+	client = clients->elem;
+	pck.player = client->player;
+	pck.pos = pos;
+	write(srv->sockfd, &pck, sizeof(t_packet));
+      }
       send_to_all(CONNECT, srv->player, &pos, list);
       pthread_create(&server, NULL, listen_sock, nlist);
     }
