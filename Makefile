@@ -20,7 +20,7 @@ OBJS =	$(SRCS:.c=.o)
 
 CC =	gcc
 
-FLAGS =	-lsfml-audio -lsfml-graphics -lsfml-window -lsfml-system -lstdc++ -ldl -lm -L/home/boulag_l/.froot/lib -lpthread
+FLAGS =	-lsfml-audio -lsfml-graphics -lsfml-window -lsfml-system -lstdc++ -ldl -lm -L/home/hazard_v/.froot/lib -lpthread
 
 RM =	rm -f
 
