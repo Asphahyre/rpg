@@ -5,7 +5,7 @@
 ** Login   <boulag_l@epitech.net>
 **
 ** Started on  Mon Nov 02 12:58:49 2015 Luka Boulagnon
-** Last update Sun Nov 08 22:32:18 2015 Asphähyre
+** Last update Mon Nov 09 09:30:10 2015 Asphähyre
 */
 
 
@@ -27,6 +27,20 @@ void error(char *msg)
 {
     perror(msg);
     exit(0);
+}
+
+void		delete(chain_list *list, int player)
+{
+  chain_list	*before;
+
+  while (list->id != player)
+  {
+    before = list;
+    list = list->next;
+  }
+  before->next = list->next;
+  free(list->elem);
+  free(list);
 }
 
 void		push(chain_list *list, chain_list *next)
@@ -89,7 +103,8 @@ void			*get_pos(void *param)
 	}
 	break;
       case DISCONNECT:
-	printf("Someone left...\n");
+	printf("CLIENT %d DISCONNECTED...\n", pck.player);
+	delete(params->players, pck.player);
 	break;
     }
   } while (readed);
@@ -142,17 +157,31 @@ void		*move_player(void *arg)
   t_params	*params;
   int		i;
   pthread_t	send;
+  int		movex;
+  int		movey;
 
   params = arg;
-  i = 0;
   while (params->move)
   {
-    i = i + 1;
-    params->pos.x = params->pos.x + params->move_player[0] * params->move_multiplier;
-    params->pos.y = params->pos.y + params->move_player[1] * params->move_multiplier;
-    if (!(i % 6) && (params->move_player[0] || params->move_player[1]))
-      pthread_create(&send, NULL, send_pos, params);
-    usleep(1000000/60);
+    if (params->move_player[0])
+      movex = (params->move_player[0] > 0) ? 1 : -1;
+    else
+      movex = 0;
+    if (params->move_player[1])
+      movey = (params->move_player[1] > 0) ? 1 : -1;
+    else
+      movey = 0;
+    i = 0;
+    while ((i < 50) && (movex || movey))
+      {
+	i++;
+	params->pos.x = params->pos.x + movex;// * params->move_multiplier;
+	params->pos.y = params->pos.y + movey;// * params->move_multiplier;
+	pthread_create(&send, NULL, send_pos, params);
+	usleep(1000000/600);
+      }
+    if (movex || movey)
+    movex = movey = 0;
   }
 }
 
@@ -202,7 +231,7 @@ t_bunny_response	loop(void *param)
   p = params->pa;
   bunny_blit(&win->buffer, &params->black->clipable, &(params->origin));
   bunny_blit(&win->buffer, &p->clipable, &(params->pos));
-  disp_players(&win->buffer, &p->clipable, params->players);
+  disp_players(&win->buffer, bunny_load_picture("pichu.png"), params->players);
   bunny_set_key_response(&truc_pressed);
   bunny_display(win);
   usleep(1000000/60);

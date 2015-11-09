@@ -25,6 +25,7 @@ struct s_server
 {
   int			player;
   int			sockfd;
+  t_bunny_position	pos;
 };
 
 struct s_params

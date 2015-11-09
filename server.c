@@ -1,5 +1,3 @@
-/* A simple server in the internet domain using TCP
-  The port number is passed as an argument */
 #include "lapin.h"
 #include "lapin_enum.h"
 #include "my.h"
@@ -36,6 +34,17 @@ void		push(chain_list *list, chain_list *elem)
   list->next = elem;
 }
 
+void			player_moved(chain_list *clients, t_bunny_position pos, int player)
+{
+  t_server		*server;
+
+  clients = clients->next;
+  while (clients && ((t_server *)clients->elem)->player != player)
+    clients = clients->next;
+  if (clients)
+    ((t_server *)clients->elem)->pos = pos;
+}
+
 void		send_to_all(int type, int who, void *what, chain_list *clients)
 {
   t_server	*srv;
@@ -48,6 +57,7 @@ void		send_to_all(int type, int who, void *what, chain_list *clients)
       pck.type = MOVE;
       pck.player = who;
       pck.pos = *((t_bunny_position *)what);
+      player_moved(clients, pck.pos, who);
       while (clients = clients->next)
       {
 	srv = clients->elem;
@@ -149,7 +159,6 @@ int create_servers()
       nlist->loop = 1;
       nlist->everyone = list;
       nlist->next = NULL;
-      push(list, nlist);
       pos.x = 200;
       pos.y = 100;
       pck.type = CONNECT;
@@ -158,9 +167,10 @@ int create_servers()
       {
 	client = clients->elem;
 	pck.player = client->player;
-	pck.pos = pos;
+	pck.pos = client->pos;
 	write(srv->sockfd, &pck, sizeof(t_packet));
       }
+      push(list, nlist);
       send_to_all(CONNECT, srv->player, &pos, list);
       pthread_create(&server, NULL, listen_sock, nlist);
     }
