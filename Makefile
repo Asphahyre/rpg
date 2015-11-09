@@ -5,15 +5,14 @@
 ## Login   <boulag_l@epitech.net>
 ## 
 ## Started on  Mon Oct 12 17:35:10 2015 Luka Boulagnon
-## Last update Fri Nov 06 22:53:12 2015 Asphähyre
+## Last update Mon Nov 09 17:09:14 2015 Asphähyre
 ##
 
 NAME =	rpg
 
 P_SRC =	./
 
-SRCS =	noise.c \
-	main.c
+SRCS =	main.c
 
 SRV	= server.c
 

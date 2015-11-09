@@ -68,6 +68,16 @@ void		send_to_all(int type, int who, void *what, chain_list *clients)
       pck.type = CONNECT;
       pck.player = who;
       pck.pos = *((t_bunny_position *)what);
+      pck.name[0] = 'p';
+      pck.name[1] = 'i';
+      pck.name[2] = 'c';
+      pck.name[3] = 'h';
+      pck.name[4] = 'u';
+      pck.name[5] = '.';
+      pck.name[6] = 'p';
+      pck.name[7] = 'n';
+      pck.name[8] = 'g';
+      pck.name[9] = 0;
       while (clients = clients->next)
       {
 	srv = clients->elem;
@@ -162,6 +172,16 @@ int create_servers()
       pos.x = 200;
       pos.y = 100;
       pck.type = CONNECT;
+      pck.name[0] = 'p';
+      pck.name[1] = 'i';
+      pck.name[2] = 'c';
+      pck.name[3] = 'h';
+      pck.name[4] = 'u';
+      pck.name[5] = '.';
+      pck.name[6] = 'p';
+      pck.name[7] = 'n';
+      pck.name[8] = 'g';
+      pck.name[9] = 0;
       clients = list;
       while (clients = clients->next)
       {
