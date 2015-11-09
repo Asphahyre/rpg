@@ -5,7 +5,7 @@
 ** Login   <boulag_l@epitech.net>
 **
 ** Started on  Mon Nov 02 12:58:49 2015 Luka Boulagnon
-** Last update Mon Nov 09 17:10:43 2015 Asphähyre
+** Last update Mon Nov 09 22:35:39 2015 Asphähyre
 */
 
 
@@ -153,6 +153,28 @@ void		*send_pos(void *param)
   return (NULL);
 }
 
+char		collision(t_params *params, int x, int y)
+{
+  t_obstacle	*obst;
+  t_bounds_s	bounds;
+  int		i;
+
+  i = 0;
+  obst = params->obstacles;
+  while (obst = obst->next)
+  {
+    bounds = obst->bounds;
+    printf("Cheking bounds on %dst obstacle\n", i);
+    printf("\tbounds on x1=%d\n\t\t  x2=%d\n\t\t  y1=%d\n\t\t  y2=%d\n\n", (bounds.x1 * 50 + obst->pos->x), (bounds.x2 * 50 + obst->pos->x), (bounds.y1 * 50 + obst->pos->y), (bounds.y2 * 50 + obst->pos->y));
+    printf("Player on [%d, %d]\n\n", x, y);
+    i++;
+    if (x >= (bounds.x1 * 50 + obst->pos->x) && x < (bounds.x2 * 50 + obst->pos->x) &&
+	y >= (bounds.y1 * 50 + obst->pos->y) && y < (bounds.y2 * 50 + obst->pos->y))
+      return (1);
+  }
+  return (0);
+}
+
 void		*move_player(void *arg)
 {
   t_params	*params;
@@ -164,11 +186,11 @@ void		*move_player(void *arg)
   params = arg;
   while (params->move)
   {
-    if (params->move_player[0])
+    if (params->move_player[0] && !collision(params, params->pos.x + 50 * params->move_player[0], params->pos.y))
       movex = (params->move_player[0] > 0) ? 1 : -1;
     else
       movex = 0;
-    if (params->move_player[1])
+    if (params->move_player[1] && !collision(params, params->pos.x + 50 * movex, params->pos.y + 50 * params->move_player[1]))
       movey = (params->move_player[1] > 0) ? 1 : -1;
     else
       movey = 0;
@@ -194,17 +216,35 @@ t_bunny_response	key_pressed(t_bunny_event_state event, t_bunny_keysym key,  voi
   switch (key)
   {
     case 25:
+    case 73:
       params->move_player[1] = -(event == GO_DOWN);
       break;
     case 16:
+    case 71:
       params->move_player[0] = -(event == GO_DOWN);
       break;
     case 18:
+    case 74:
       params->move_player[1] = (event == GO_DOWN);
       break;
     case 3:
+    case 72:
       params->move_player[0] = (event == GO_DOWN);
       break;
+    case 8:
+      params->camera.y += 9 * (event == GO_DOWN);
+      break;
+    case 9:
+      params->camera.x += 9 * (event == GO_DOWN);
+      break;
+    case 10:
+      params->camera.y -= 9 * (event == GO_DOWN);
+      break;
+    case 11:
+      params->camera.x -= 9 * (event == GO_DOWN);
+      break;
+    default:
+      printf("Key %d pressed\n");
   }
   return (GO_ON);
 }
@@ -216,15 +256,14 @@ void		push_obs(t_obstacle *list, t_obstacle *next)
   list->next = next;
 }
 
-void			add_obstacle(t_obstacle *obstacles, t_bunny_picture *image, t_bunny_position *pos, int sizex, int sizey)
+void			add_obstacle(t_obstacle *obstacles, t_bunny_picture *image, t_bunny_position *pos, t_bounds_s bounds)
 {
   t_obstacle		*obst;
 
   obst = malloc(sizeof(t_obstacle));
   obst->pic = image;
   obst->pos = pos;
-  obst->size[0] = sizex;
-  obst->size[1] = sizey;
+  obst->bounds = bounds;
   obst->next = NULL;
   printf("push_obs in %p of %p...\n", obstacles, obst);
   push_obs(obstacles, obst);
@@ -251,10 +290,41 @@ t_bunny_position	*get_pos_by_coords(int x, int y)
   return (to_return);
 }
 
-void			render_obst(t_bunny_buffer *buff, t_obstacle *obst, t_bunny_picture *pic)
+t_bunny_position	*camera(t_bunny_position camera, t_bunny_position *pos)
+{
+  t_bunny_position	*result;
+
+  result = malloc(sizeof(t_bunny_position));
+  result->x = camera.x + pos->x;
+  result->y = camera.y + pos->y;
+  return (result);
+}
+
+void			render_obst(t_bunny_buffer *buff, t_obstacle *obst, t_bunny_picture *pic, t_bunny_position cam)
 {
   while (obst && (obst = obst->next))
-    bunny_blit(buff, obst->pic, obst->pos);
+    bunny_blit(buff, obst->pic, camera(cam, obst->pos));
+}
+
+void			render_wheed(t_bunny_buffer *buff, t_bunny_picture *wheed, t_bunny_position cam)
+{
+  int			x;
+  int			y;
+  t_bunny_position	*pos;
+
+  x = 0;
+  while (x < 20)
+  {
+    y = 0;
+    while (y < 20)
+    {
+      pos = camera(cam, get_pos_by_coords(x, y));
+      bunny_blit(buff, wheed, pos);
+      free(pos);
+      y++;
+    }
+    x++;
+  }
 }
 
 t_bunny_response	loop(void *param)
@@ -264,29 +334,15 @@ t_bunny_response	loop(void *param)
   t_bunny_window	*win;
   t_params		*params;
   t_bunny_position	*pos;
-  int			x;
-  int			y;
 
   params = param;
   win = params->win;
   p = params->pa;
-  bunny_blit(&win->buffer, &params->black->clipable, &(params->origin));
-  x = 0;
-  while (x < 20)
-  {
-    y = 0;
-    while (y < 20)
-    {
-      pos = get_pos_by_coords(x, y);
-      bunny_blit(&win->buffer, params->wheed, pos);
-      free(pos);
-      y++;
-    }
-    x++;
-  }
-  bunny_blit(&win->buffer, params->skin, &params->pos);
+  bunny_blit(&win->buffer, &params->black->clipable, &params->origin);
+  render_wheed(&win->buffer, params->wheed, params->camera);
+  bunny_blit(&win->buffer, params->skin, camera(params->camera, &params->pos));
   disp_players(&win->buffer, &params->black->clipable, params->players);
-  render_obst(&win->buffer, params->obstacles, params->tree);
+  render_obst(&win->buffer, params->obstacles, params->tree, params->camera);
   bunny_set_key_response(&key_pressed);
   bunny_display(win);
   usleep(1000000/60);
@@ -306,6 +362,7 @@ int     main(int argc, char **argv)
   pthread_t		get_data;
   chain_list		*players;
   char			*server;
+  t_bounds_s		bounds;
 
   if (argc < 2)
     server = "localhost";
@@ -331,6 +388,7 @@ int     main(int argc, char **argv)
   speed[1] = 0;
   params.win = w;
   params.pos = position;
+  params.camera = origin;
   params.pa = p;
   params.black = black;
   params.origin = origin;
@@ -348,11 +406,32 @@ int     main(int argc, char **argv)
   params.obstacles = malloc(sizeof(t_obstacle));
   params.obstacles->next = NULL;
 
-  add_obstacle(params.obstacles, params.tree, get_pos_by_coords(4, 0), 2, 2);
-  add_obstacle(params.obstacles, params.tree, get_pos_by_coords(4, 1), 2, 2);
-  add_obstacle(params.obstacles, params.tree, get_pos_by_coords(4, 2), 2, 2);
-  add_obstacle(params.obstacles, params.tree, get_pos_by_coords(4, 3), 2, 2);
-  add_obstacle(params.obstacles, params.tree, get_pos_by_coords(4, 4), 2, 2);
+  bounds.x1 = 0;
+  bounds.y1 = 2;
+  bounds.x2 = 2;
+  bounds.y2 = 3;
+  add_obstacle(params.obstacles, params.tree, get_pos_by_coords(14, -1), bounds);
+  add_obstacle(params.obstacles, params.tree, get_pos_by_coords(14, 0), bounds);
+  add_obstacle(params.obstacles, params.tree, get_pos_by_coords(14, 1), bounds);
+  add_obstacle(params.obstacles, params.tree, get_pos_by_coords(14, 2), bounds);
+  add_obstacle(params.obstacles, params.tree, get_pos_by_coords(14, 3), bounds);
+  add_obstacle(params.obstacles, params.tree, get_pos_by_coords(14, 4), bounds);
+  add_obstacle(params.obstacles, params.tree, get_pos_by_coords(14, 5), bounds);
+  add_obstacle(params.obstacles, params.tree, get_pos_by_coords(14, 6), bounds);
+  add_obstacle(params.obstacles, params.tree, get_pos_by_coords(14, 7), bounds);
+  add_obstacle(params.obstacles, params.tree, get_pos_by_coords(14, 8), bounds);
+  add_obstacle(params.obstacles, params.tree, get_pos_by_coords(14, 9), bounds);
+  add_obstacle(params.obstacles, params.tree, get_pos_by_coords(0, -1), bounds);
+  add_obstacle(params.obstacles, params.tree, get_pos_by_coords(0, 0), bounds);
+  add_obstacle(params.obstacles, params.tree, get_pos_by_coords(0, 1), bounds);
+  add_obstacle(params.obstacles, params.tree, get_pos_by_coords(0, 2), bounds);
+  add_obstacle(params.obstacles, params.tree, get_pos_by_coords(0, 3), bounds);
+  add_obstacle(params.obstacles, params.tree, get_pos_by_coords(0, 4), bounds);
+  add_obstacle(params.obstacles, params.tree, get_pos_by_coords(0, 5), bounds);
+  add_obstacle(params.obstacles, params.tree, get_pos_by_coords(0, 6), bounds);
+  add_obstacle(params.obstacles, params.tree, get_pos_by_coords(0, 7), bounds);
+  add_obstacle(params.obstacles, params.tree, get_pos_by_coords(0, 8), bounds);
+  add_obstacle(params.obstacles, params.tree, get_pos_by_coords(0, 9), bounds);
 
   send_pos(&params);
   pthread_create(&get_data, NULL, get_pos, &params);

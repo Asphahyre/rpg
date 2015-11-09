@@ -31,12 +31,22 @@ struct s_server
   char			name[10];
 };
 
+struct s_bounds_s
+{
+  int	x1;
+  int	y1;
+  int	x2;
+  int	y2;
+};
+
+typedef struct s_bounds_s	t_bounds_s;
+
 struct s_obstacle
 {
   struct s_obstacle	*next;
   t_bunny_picture	*pic;
   t_bunny_position	*pos;
-  int			size[2];
+  t_bounds_s		bounds;
 };
 
 typedef struct s_obstacle	t_obstacle;
@@ -46,6 +56,7 @@ struct s_params
   char			*server;
   int			*move_player;
   int			move;
+  t_bunny_position	camera;
   int			move_multiplier;
   int			server_port;
   int			sockfd;
