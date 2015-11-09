@@ -5,7 +5,7 @@
 ** Login   <boulag_l@epitech.net>
 **
 ** Started on  Mon Nov 02 12:58:49 2015 Luka Boulagnon
-** Last update Mon Nov 09 22:35:39 2015 Asphähyre
+** Last update Mon Nov 09 23:31:04 2015 Asphähyre
 */
 
 
@@ -217,19 +217,23 @@ t_bunny_response	key_pressed(t_bunny_event_state event, t_bunny_keysym key,  voi
   {
     case 25:
     case 73:
-      params->move_player[1] = -(event == GO_DOWN);
+      if (!params->move_player[0])
+        params->move_player[1] = -(event == GO_DOWN);
       break;
     case 16:
     case 71:
-      params->move_player[0] = -(event == GO_DOWN);
+      if (!params->move_player[1])
+	params->move_player[0] = -(event == GO_DOWN);
       break;
     case 18:
     case 74:
-      params->move_player[1] = (event == GO_DOWN);
+      if (!params->move_player[0])
+	params->move_player[1] = (event == GO_DOWN);
       break;
     case 3:
     case 72:
-      params->move_player[0] = (event == GO_DOWN);
+      if (!params->move_player[1])
+	params->move_player[0] = (event == GO_DOWN);
       break;
     case 8:
       params->camera.y += 9 * (event == GO_DOWN);
@@ -400,7 +404,7 @@ int     main(int argc, char **argv)
   params.sockfd = 0;
   params.user = rand();
   params.players = players;
-  params.skin = bunny_load_picture("textures/pichu.png");
+  params.skin = bunny_load_picture("textures/players/player_f_f_0.png");
   params.tree = bunny_load_picture("textures/tree.png");
   params.wheed = bunny_load_picture("textures/wheed.png");
   params.obstacles = malloc(sizeof(t_obstacle));
