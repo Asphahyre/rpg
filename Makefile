@@ -5,7 +5,7 @@
 ## Login   <boulag_l@epitech.net>
 ## 
 ## Started on  Mon Oct 12 17:35:10 2015 Luka Boulagnon
-## Last update Mon Nov 09 17:09:14 2015 Asphähyre
+## Last update Tue Nov 10 08:00:08 2015 Asphähyre
 ##
 
 NAME =	rpg
@@ -20,7 +20,7 @@ OBJS =	$(SRCS:.c=.o)
 
 CC =	gcc
 
-FLAGS =	-lsfml-audio -lsfml-graphics -lsfml-window -lsfml-system -lstdc++ -ldl -lm -L/home/hazard_v/.froot/lib -lpthread
+FLAGS =	-lsfml-audio -lsfml-graphics -lsfml-window -lsfml-system -lstdc++ -ldl -lm -L/home/${USER}/.froot/lib -lpthread
 
 RM =	rm -f
 
