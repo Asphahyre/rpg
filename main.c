@@ -5,7 +5,7 @@
 ** Login   <boulag_l@epitech.net>
 **
 ** Started on  Mon Nov 02 12:58:49 2015 Luka Boulagnon
-** Last update Mon Nov 09 23:31:04 2015 Asphähyre
+** Last update Tue Nov 10 22:06:55 2015 Asphähyre
 */
 
 
@@ -43,6 +43,20 @@ void		delete(chain_list *list, int player)
   free(list);
 }
 
+void		delete_plyr(t_players *list, int player)
+{
+  t_players	*before;
+
+  while (list->id != player)
+  {
+    before = list;
+    list = list->next;
+  }
+  before->next = list->next;
+  free(list->elem);
+  free(list);
+}
+
 void		push(chain_list *list, chain_list *next)
 {
   while (list->next)
@@ -50,7 +64,7 @@ void		push(chain_list *list, chain_list *next)
   list->next = next;
 }
 
-void			player_moved(chain_list *players, t_bunny_position pos, int player)
+void			player_moved(t_players *players, t_bunny_position pos, int player)
 {
   t_bunny_position	*position;
 
@@ -63,11 +77,18 @@ void			player_moved(chain_list *players, t_bunny_position pos, int player)
   }
 }
 
+void		push_plyr(t_players *list, t_players *next)
+{
+  while (list->next)
+    list = list->next;
+  list->next = next;
+}
+
 void			*get_pos(void *param)
 {
   t_params		*params;
   t_packet		pck;
-  chain_list		*new_player;
+  t_players		*new_player;
   t_bunny_position	*pos;
   int			readed;
 
@@ -94,18 +115,19 @@ void			*get_pos(void *param)
 	  pos = malloc(sizeof(t_bunny_position));
 	  pos->x = pck.pos.x;
 	  pos->y = pck.pos.y;
-	  new_player = malloc(sizeof(chain_list));
+	  new_player = malloc(sizeof(t_players));
 	  new_player->next = NULL;
 	  new_player->everyone = params->players;
 	  new_player->elem = pos;
 	  new_player->id = pck.player;
+	  new_player->orientation = FACE;
 	  new_player->skin = bunny_load_picture("pichu.png");
-	  push(params->players, new_player);
+	  push_plyr(params->players, new_player);
 	}
 	break;
       case DISCONNECT:
 	printf("CLIENT %d DISCONNECTED...\n", pck.player);
-	delete(params->players, pck.player);
+	delete_plyr(params->players, pck.player);
 	break;
     }
   } while (readed);
@@ -156,7 +178,7 @@ void		*send_pos(void *param)
 char		collision(t_params *params, int x, int y)
 {
   t_obstacle	*obst;
-  t_bounds_s	bounds;
+  t_bounds	bounds;
   int		i;
 
   i = 0;
@@ -164,15 +186,37 @@ char		collision(t_params *params, int x, int y)
   while (obst = obst->next)
   {
     bounds = obst->bounds;
-    printf("Cheking bounds on %dst obstacle\n", i);
-    printf("\tbounds on x1=%d\n\t\t  x2=%d\n\t\t  y1=%d\n\t\t  y2=%d\n\n", (bounds.x1 * 50 + obst->pos->x), (bounds.x2 * 50 + obst->pos->x), (bounds.y1 * 50 + obst->pos->y), (bounds.y2 * 50 + obst->pos->y));
-    printf("Player on [%d, %d]\n\n", x, y);
     i++;
-    if (x >= (bounds.x1 * 50 + obst->pos->x) && x < (bounds.x2 * 50 + obst->pos->x) &&
-	y >= (bounds.y1 * 50 + obst->pos->y) && y < (bounds.y2 * 50 + obst->pos->y))
-      return (1);
+    if (bounds.type == 0)
+    {
+      if (x >= (bounds.x1 * 50 + obst->pos->x) && x < (bounds.x2 * 50 + obst->pos->x) &&
+	  y >= (bounds.y1 * 50 + obst->pos->y) && y < (bounds.y2 * 50 + obst->pos->y))
+	return (1);
+    }
+    else
+    {
+      printf("Player in pos :\n\t\tx = %d\n\t\ty = %d\n\n", x, y);
+      printf("\tbounds.gate_x1 = %d\n\tbounds.gate_x2 = %d\n\tbounds.gate_y1 = %d\n\tbounds.gate_y2 = %d\n", bounds.gate_x1 * 50 + obst->pos->x, bounds.gate_x2 * 50 + obst->pos->x, bounds.gate_y1 * 50 + obst->pos->x, bounds.gate_y2 * 50 + obst->pos->x);
+      if ((x < (bounds.gate_x1 * 50 + obst->pos->x) || x >= (bounds.gate_x2 * 50 + obst->pos->x) ||
+	    y < (bounds.gate_y1 * 50 + obst->pos->x) || y >= (bounds.gate_y2 * 50 + obst->pos->y)))
+	if (x >= (bounds.x1 * 50 + obst->pos->x) && x < (bounds.x2 * 50 + obst->pos->x) &&
+	    y >= (bounds.y1 * 50 + obst->pos->y) && y < (bounds.y2 * 50 + obst->pos->y))
+	  return (1);
+    }
   }
   return (0);
+}
+
+void		move_camera(t_bunny_position *cam, t_bunny_position player)
+{
+  if (player.y > (-cam->y - 210 + 600))
+    cam->y -= 1;
+  if (player.x > (-cam->x - 210 + 800))
+    cam->x -= 1;
+  if (player.y < (-cam->y + 210))
+    cam->y += 1;
+  if (player.x < (-cam->x + 210))
+    cam->x += 1;
 }
 
 void		*move_player(void *arg)
@@ -184,27 +228,47 @@ void		*move_player(void *arg)
   int		movey;
 
   params = arg;
+  i = 0;
   while (params->move)
   {
-    if (params->move_player[0] && !collision(params, params->pos.x + 50 * params->move_player[0], params->pos.y))
+    movex = movey = 0;
+    if (params->move_player[0] && !params->move_player[1] &&
+	!collision(params, params->pos.x + 50 * params->move_player[0], params->pos.y))
       movex = (params->move_player[0] > 0) ? 1 : -1;
     else
       movex = 0;
-    if (params->move_player[1] && !collision(params, params->pos.x + 50 * movex, params->pos.y + 50 * params->move_player[1]))
+    if (params->move_player[1] &&
+	!collision(params, params->pos.x + 50 * movex, params->pos.y + 50 * params->move_player[1]))
       movey = (params->move_player[1] > 0) ? 1 : -1;
     else
       movey = 0;
+    if (!(movex + movey))
+      params->step = 0;
     i = 0;
-    while ((i < 50) && (movex || movey))
+    while ((i != 50) && (movex || movey))
       {
+	if (i == 0)
+	{
+	  if (params->move_player[0] > 0)
+	    params->orientation = RIGH;
+	  else if (params->move_player[0] < 0)
+	    params->orientation = LEFT;
+	  if (params->move_player[1] > 0)
+	    params->orientation = FACE;
+	  else if (params->move_player[1] < 0)
+	    params->orientation = BACK;
+	}
 	i++;
 	params->pos.x = params->pos.x + movex;
 	params->pos.y = params->pos.y + movey;
-	usleep(1000000/300);
+	usleep(1000000/(150 * (params->run + 1)));
 	if ((i % 5) == 0)
 	  pthread_create(&send, NULL, send_pos, params);
+	if ((i % 25) == 0)
+	  params->step = (1 + params->step) % 3;
+	move_camera(&params->camera, params->pos);
       }
-    usleep(1000000/30);
+    usleep(100000/30);
   }
 }
 
@@ -217,23 +281,19 @@ t_bunny_response	key_pressed(t_bunny_event_state event, t_bunny_keysym key,  voi
   {
     case 25:
     case 73:
-      if (!params->move_player[0])
-        params->move_player[1] = -(event == GO_DOWN);
+      params->move_player[1] = -(event == GO_DOWN);
       break;
     case 16:
     case 71:
-      if (!params->move_player[1])
-	params->move_player[0] = -(event == GO_DOWN);
+      params->move_player[0] = -(event == GO_DOWN);
       break;
     case 18:
     case 74:
-      if (!params->move_player[0])
-	params->move_player[1] = (event == GO_DOWN);
+      params->move_player[1] = (event == GO_DOWN);
       break;
     case 3:
     case 72:
-      if (!params->move_player[1])
-	params->move_player[0] = (event == GO_DOWN);
+      params->move_player[0] = (event == GO_DOWN);
       break;
     case 8:
       params->camera.y += 9 * (event == GO_DOWN);
@@ -246,6 +306,9 @@ t_bunny_response	key_pressed(t_bunny_event_state event, t_bunny_keysym key,  voi
       break;
     case 11:
       params->camera.x -= 9 * (event == GO_DOWN);
+      break;
+    case 01:
+      params->run = (event == GO_DOWN);
       break;
     default:
       printf("Key %d pressed\n");
@@ -260,7 +323,7 @@ void		push_obs(t_obstacle *list, t_obstacle *next)
   list->next = next;
 }
 
-void			add_obstacle(t_obstacle *obstacles, t_bunny_picture *image, t_bunny_position *pos, t_bounds_s bounds)
+void			add_obstacle(t_obstacle *obstacles, t_bunny_picture *image, t_bunny_position *pos, t_bounds bounds)
 {
   t_obstacle		*obst;
 
@@ -269,18 +332,27 @@ void			add_obstacle(t_obstacle *obstacles, t_bunny_picture *image, t_bunny_posit
   obst->pos = pos;
   obst->bounds = bounds;
   obst->next = NULL;
-  printf("push_obs in %p of %p...\n", obstacles, obst);
   push_obs(obstacles, obst);
 }
 
-void			disp_players(t_bunny_buffer *buffer, t_bunny_clipable *p, chain_list *players)
+t_bunny_position	*camera(t_bunny_position camera, t_bunny_position *pos)
+{
+  t_bunny_position	*result;
+
+  result = malloc(sizeof(t_bunny_position));
+  result->x = camera.x + pos->x;
+  result->y = camera.y + pos->y;
+  return (result);
+}
+
+void			disp_players(t_bunny_buffer *buffer, t_bunny_clipable *p, t_players *players, t_bunny_position cam)
 {
   t_bunny_position	*pos;
 
   while (players = players->next)
   {
     pos = players->elem;
-    bunny_blit(buffer, players->skin, pos);
+    bunny_blit(buffer, players->skin, camera(cam, pos));
   }
 }
 
@@ -292,16 +364,6 @@ t_bunny_position	*get_pos_by_coords(int x, int y)
   to_return->x = 50 * x;
   to_return->y = 50 * y;
   return (to_return);
-}
-
-t_bunny_position	*camera(t_bunny_position camera, t_bunny_position *pos)
-{
-  t_bunny_position	*result;
-
-  result = malloc(sizeof(t_bunny_position));
-  result->x = camera.x + pos->x;
-  result->y = camera.y + pos->y;
-  return (result);
 }
 
 void			render_obst(t_bunny_buffer *buff, t_obstacle *obst, t_bunny_picture *pic, t_bunny_position cam)
@@ -316,11 +378,11 @@ void			render_wheed(t_bunny_buffer *buff, t_bunny_picture *wheed, t_bunny_positi
   int			y;
   t_bunny_position	*pos;
 
-  x = 0;
-  while (x < 20)
+  x = -20;
+  while (x < 40)
   {
-    y = 0;
-    while (y < 20)
+    y = -20;
+    while (y < 40)
     {
       pos = camera(cam, get_pos_by_coords(x, y));
       bunny_blit(buff, wheed, pos);
@@ -344,13 +406,41 @@ t_bunny_response	loop(void *param)
   p = params->pa;
   bunny_blit(&win->buffer, &params->black->clipable, &params->origin);
   render_wheed(&win->buffer, params->wheed, params->camera);
-  bunny_blit(&win->buffer, params->skin, camera(params->camera, &params->pos));
-  disp_players(&win->buffer, &params->black->clipable, params->players);
+  bunny_blit(&win->buffer, params->skin[3 * params->orientation + params->step], camera(params->camera, &params->pos));
   render_obst(&win->buffer, params->obstacles, params->tree, params->camera);
+  disp_players(&win->buffer, &params->black->clipable, params->players, params->camera);
   bunny_set_key_response(&key_pressed);
   bunny_display(win);
   usleep(1000000/60);
   return (GO_ON);
+}
+
+char	*plyr_pic_get_path(int sex, int orientation, int step)
+{
+  char	*prefix;
+  char	*separator = "_";
+  char	orient;
+
+  switch (orientation)
+  {
+    case FACE:
+      orient = 'f';
+      break;
+    case LEFT:
+      orient = 'l';
+      break;
+    case RIGH:
+      orient = 'r';
+      break;
+    case BACK:
+      orient = 'b';
+  }
+  prefix = strdup("textures/players/player_X_X_X.png");
+  prefix[24] = 'f';
+  prefix[26] = orient;
+  prefix[28] = step + '0';
+
+  return (prefix);
 }
 
 int     main(int argc, char **argv)
@@ -359,14 +449,15 @@ int     main(int argc, char **argv)
   t_bunny_window	*w;
   t_bunny_position	position;
   t_bunny_position	origin;
+  t_bunny_music		*music;
   t_bunny_pixelarray	*p;
   t_bunny_pixelarray	*black;
   int			*speed;
   pthread_t		moving;
   pthread_t		get_data;
-  chain_list		*players;
+  t_players		*players;
   char			*server;
-  t_bounds_s		bounds;
+  t_bounds		bounds;
 
   if (argc < 2)
     server = "localhost";
@@ -383,7 +474,7 @@ int     main(int argc, char **argv)
   bunny_set_key_response(&key_pressed);
 
   srand(time(NULL));
-  players = malloc(sizeof(chain_list));
+  players = malloc(sizeof(t_players));
   players->next = NULL;
   players->elem = NULL;
   players->everyone = players;
@@ -391,6 +482,7 @@ int     main(int argc, char **argv)
   speed[0] = 0;
   speed[1] = 0;
   params.win = w;
+  params.run = 0;
   params.pos = position;
   params.camera = origin;
   params.pa = p;
@@ -404,44 +496,75 @@ int     main(int argc, char **argv)
   params.sockfd = 0;
   params.user = rand();
   params.players = players;
-  params.skin = bunny_load_picture("textures/players/player_f_f_0.png");
+  params.skin[0] = bunny_load_picture(plyr_pic_get_path(FEMALE, FACE, 0));
+  params.skin[1] = bunny_load_picture(plyr_pic_get_path(FEMALE, FACE, 1));
+  params.skin[2] = bunny_load_picture(plyr_pic_get_path(FEMALE, FACE, 2));
+  params.skin[3] = bunny_load_picture(plyr_pic_get_path(FEMALE, LEFT, 0));
+  params.skin[4] = bunny_load_picture(plyr_pic_get_path(FEMALE, LEFT, 1));
+  params.skin[5] = bunny_load_picture(plyr_pic_get_path(FEMALE, LEFT, 2));
+  params.skin[6] = bunny_load_picture(plyr_pic_get_path(FEMALE, RIGH, 0));
+  params.skin[7] = bunny_load_picture(plyr_pic_get_path(FEMALE, RIGH, 1));
+  params.skin[8] = bunny_load_picture(plyr_pic_get_path(FEMALE, RIGH, 2));
+  params.skin[9] = bunny_load_picture(plyr_pic_get_path(FEMALE, BACK, 0));
+  params.skin[10] = bunny_load_picture(plyr_pic_get_path(FEMALE, BACK, 1));
+  params.skin[11] = bunny_load_picture(plyr_pic_get_path(FEMALE, BACK, 2));
+  params.orientation = FACE;
   params.tree = bunny_load_picture("textures/tree.png");
   params.wheed = bunny_load_picture("textures/wheed.png");
   params.obstacles = malloc(sizeof(t_obstacle));
   params.obstacles->next = NULL;
 
+  bounds.type = 0;
   bounds.x1 = 0;
-  bounds.y1 = 2;
+  bounds.y1 = 1;
   bounds.x2 = 2;
   bounds.y2 = 3;
+  add_obstacle(params.obstacles, params.tree, get_pos_by_coords(8, -1), bounds);
   add_obstacle(params.obstacles, params.tree, get_pos_by_coords(14, -1), bounds);
-  add_obstacle(params.obstacles, params.tree, get_pos_by_coords(14, 0), bounds);
+  add_obstacle(params.obstacles, params.tree, get_pos_by_coords(10, -1), bounds);
+  add_obstacle(params.obstacles, params.tree, get_pos_by_coords(14, -1), bounds);
+  add_obstacle(params.obstacles, params.tree, get_pos_by_coords(12, -1), bounds);
   add_obstacle(params.obstacles, params.tree, get_pos_by_coords(14, 1), bounds);
-  add_obstacle(params.obstacles, params.tree, get_pos_by_coords(14, 2), bounds);
   add_obstacle(params.obstacles, params.tree, get_pos_by_coords(14, 3), bounds);
-  add_obstacle(params.obstacles, params.tree, get_pos_by_coords(14, 4), bounds);
   add_obstacle(params.obstacles, params.tree, get_pos_by_coords(14, 5), bounds);
-  add_obstacle(params.obstacles, params.tree, get_pos_by_coords(14, 6), bounds);
   add_obstacle(params.obstacles, params.tree, get_pos_by_coords(14, 7), bounds);
-  add_obstacle(params.obstacles, params.tree, get_pos_by_coords(14, 8), bounds);
   add_obstacle(params.obstacles, params.tree, get_pos_by_coords(14, 9), bounds);
-  add_obstacle(params.obstacles, params.tree, get_pos_by_coords(0, -1), bounds);
-  add_obstacle(params.obstacles, params.tree, get_pos_by_coords(0, 0), bounds);
+  add_obstacle(params.obstacles, params.tree, get_pos_by_coords(14, 11), bounds);
+  add_obstacle(params.obstacles, params.tree, get_pos_by_coords(12, 11), bounds);
+  add_obstacle(params.obstacles, params.tree, get_pos_by_coords(10, 11), bounds);
+  add_obstacle(params.obstacles, params.tree, get_pos_by_coords(8, 11), bounds);
+  add_obstacle(params.obstacles, params.tree, get_pos_by_coords(6, 11), bounds);
+  add_obstacle(params.obstacles, params.tree, get_pos_by_coords(4, 11), bounds);
+  add_obstacle(params.obstacles, params.tree, get_pos_by_coords(2, 11), bounds);
   add_obstacle(params.obstacles, params.tree, get_pos_by_coords(0, 1), bounds);
-  add_obstacle(params.obstacles, params.tree, get_pos_by_coords(0, 2), bounds);
   add_obstacle(params.obstacles, params.tree, get_pos_by_coords(0, 3), bounds);
-  add_obstacle(params.obstacles, params.tree, get_pos_by_coords(0, 4), bounds);
   add_obstacle(params.obstacles, params.tree, get_pos_by_coords(0, 5), bounds);
-  add_obstacle(params.obstacles, params.tree, get_pos_by_coords(0, 6), bounds);
   add_obstacle(params.obstacles, params.tree, get_pos_by_coords(0, 7), bounds);
-  add_obstacle(params.obstacles, params.tree, get_pos_by_coords(0, 8), bounds);
   add_obstacle(params.obstacles, params.tree, get_pos_by_coords(0, 9), bounds);
+  add_obstacle(params.obstacles, params.tree, get_pos_by_coords(2, 1), bounds);
+  add_obstacle(params.obstacles, params.tree, get_pos_by_coords(8, 3), bounds);
+  add_obstacle(params.obstacles, params.tree, get_pos_by_coords(8, 5), bounds);
+
+  bounds.type = 1;
+  bounds.x1 = 0;
+  bounds.y1 = 1;
+  bounds.x2 = 5;
+  bounds.y2 = 5;
+  bounds.gate_x1 = 2;
+  bounds.gate_y1 = 4;
+  bounds.gate_x2 = 3;
+  bounds.gate_y2 = 5;
+  add_obstacle(params.obstacles, bunny_load_picture("textures/pokecentre.png"), get_pos_by_coords(3, 3), bounds);
 
   send_pos(&params);
   pthread_create(&get_data, NULL, get_pos, &params);
   pthread_create(&moving, NULL, move_player, &params);
+  if (!((music = bunny_load_music("sounds/main_theme.flac")) == NULL))
+    bunny_sound_play(music);
   bunny_loop(w, 255, &params);
 
+  bunny_sound_stop(music);
+  bunny_delete_sound(music);
   params.move = 0;
   close(params.sockfd);
   params.move = 0;
